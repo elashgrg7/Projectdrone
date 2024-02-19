@@ -1,0 +1,83 @@
+
+import os
+import cv2
+import numpy as np
+import pandas as pd
+
+
+cv2.namedWindow("preview")
+vc = cv2.VideoCapture(0)
+
+# Path to the folder containing the HR-Crime dataset CSV files
+folder_path = "/Users/ealashgurung/Downloads/AnomalyDetection/Dataset"  # Replace with the actual folder path
+
+# Check if the folder exists
+if not os.path.exists(folder_path):
+    print("Error: Folder not found.")
+    exit()
+
+# List all CSV files in the folder
+csv_files = [file for file in os.listdir(folder_path) if file.endswith('.csv')]
+
+# Create a window to display the processed frames
+cv2.namedWindow('Anomaly Detection', cv2.WINDOW_NORMAL)
+
+# Iterate over each CSV file in the folder
+for csv_file in csv_files:
+    csv_path = os.path.join(folder_path, csv_file)
+
+    # Load CSV file into a pandas DataFrame
+    df = pd.read_csv(csv_path)
+
+    # Convert DataFrame to NumPy array
+    frames = df.to_numpy()
+
+    # Check if CSV data has been loaded correctly
+    if len(frames) == 0:
+        print(f"Error: No frames found in the CSV file '{csv_file}'. Skipping...")
+        continue
+
+    # Assuming the dimensions of each frame are known
+    # Update the following variables accordingly
+    height = 480
+    width = 640
+    channels = 3
+
+    print(f"Processing frames from '{csv_file}'...")
+
+    # Create a background subtractor object (for frame differencing)
+    fgbg = cv2.createBackgroundSubtractorMOG2()
+
+    # Iterate over frames and process for anomaly detection
+    for frame_data in frames:
+        # Reshape frame data (assuming it's flattened)
+        frame = frame_data.reshape((height, width, channels))
+
+        # Preprocess frame (e.g., convert to grayscale)
+        gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+        # Apply background subtraction to detect anomalies
+        fgmask = fgbg.apply(gray_frame)
+
+        # Threshold the foreground mask
+        _, thresh = cv2.threshold(fgmask, 25, 255, cv2.THRESH_BINARY)
+
+        # Find contours
+        contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        # Draw bounding boxes around detected anomalies
+        for contour in contours:
+            area = cv2.contourArea(contour)
+            if area > 100:  # Adjust threshold as per your requirement
+                x, y, w, h = cv2.boundingRect(contour)
+                cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 0, 255), 2)
+
+        # Display the resulting frame
+        cv2.imshow('Anomaly Detection', frame)
+
+        # Check for exit key (press 'q' to exit)
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
+# Close OpenCV windows
+#cv2.destroyAllWindows()
